@@ -1,0 +1,196 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable hardened primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidProjectCategory(category) {
+      return category in ['renovation', 'furniture', 'outdoor', 'systems', 'custom'];
+    }
+
+    function isValidProjectStatus(status) {
+      return status in ['planning', 'in_progress', 'finishing', 'completed'];
+    }
+
+    function isValidStepPhase(phase) {
+      return phase in ['prep', 'materials', 'build', 'finish'];
+    }
+
+    function isValidProject(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             data.category is string && isValidProjectCategory(data.category) &&
+             data.location is string && data.location.size() <= 80 &&
+             data.status is string && isValidProjectStatus(data.status) &&
+             data.budgetCents is int && data.budgetCents >= 0 && data.budgetCents <= 1000000000 &&
+             data.notes is string && data.notes.size() <= 1000 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStep(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.phase is string && isValidStepPhase(data.phase) &&
+             data.completed is bool &&
+             data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 100000 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMaterial(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             (data.quantity is int || data.quantity is float) && data.quantity > 0 && data.quantity <= 1000000 &&
+             data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 24 &&
+             data.unitCostCents is int && data.unitCostCents >= 0 && data.unitCostCents <= 1000000000 &&
+             data.purchased is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMeasurement(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.label is string && data.label.size() >= 1 && data.label.size() <= 80 &&
+             data.dimensionValue is string && data.dimensionValue.size() >= 1 && data.dimensionValue.size() <= 40 &&
+             data.note is string && data.note.size() <= 300 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function projectExists(userId, projectId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/projects/$(projectId));
+    }
+
+    match /users/{userId}/projects/{projectId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(projectId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(projectId) &&
+                       incoming().keys().hasAll(['userId', 'title', 'category', 'location', 'status', 'budgetCents', 'notes', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'category', 'location', 'status', 'budgetCents', 'notes', 'createdAt', 'updatedAt']) &&
+                       isValidProject(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(projectId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidProject(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'location', 'status', 'budgetCents', 'notes', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(projectId);
+
+      match /steps/{stepId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(projectId) && isValidId(stepId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(stepId) &&
+                         incoming().keys().hasAll(['userId', 'projectId', 'title', 'phase', 'completed', 'sortOrder', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'projectId', 'title', 'phase', 'completed', 'sortOrder', 'createdAt', 'updatedAt']) &&
+                         isValidStep(incoming(), userId, projectId) &&
+                         projectExists(userId, projectId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(stepId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().projectId == existing().projectId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidStep(incoming(), userId, projectId) &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'phase', 'sortOrder', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'phase', 'completed', 'sortOrder', 'updatedAt'])
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(stepId);
+      }
+
+      match /materials/{materialId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(projectId) && isValidId(materialId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(materialId) &&
+                         incoming().keys().hasAll(['userId', 'projectId', 'name', 'quantity', 'unit', 'unitCostCents', 'purchased', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'projectId', 'name', 'quantity', 'unit', 'unitCostCents', 'purchased', 'createdAt', 'updatedAt']) &&
+                         isValidMaterial(incoming(), userId, projectId) &&
+                         projectExists(userId, projectId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(materialId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().projectId == existing().projectId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidMaterial(incoming(), userId, projectId) &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['purchased', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'quantity', 'unit', 'unitCostCents', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'quantity', 'unit', 'unitCostCents', 'purchased', 'updatedAt'])
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(materialId);
+      }
+
+      match /measurements/{measurementId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(projectId) && isValidId(measurementId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(measurementId) &&
+                         incoming().keys().hasAll(['userId', 'projectId', 'label', 'dimensionValue', 'note', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'projectId', 'label', 'dimensionValue', 'note', 'createdAt', 'updatedAt']) &&
+                         isValidMeasurement(incoming(), userId, projectId) &&
+                         projectExists(userId, projectId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(measurementId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().projectId == existing().projectId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidMeasurement(incoming(), userId, projectId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['label', 'dimensionValue', 'note', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(measurementId);
+      }
+    }
+  }
+}

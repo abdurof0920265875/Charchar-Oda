@@ -1,0 +1,6 @@
+{
+  "name": "Buildi",
+  "description": "A DIY, renovation, and construction project planner with build steps, material cost estimators, site measurements, and builder calculators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

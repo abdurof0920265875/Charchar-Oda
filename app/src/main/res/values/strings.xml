@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Buildi</string>
+    <string name="tagline">Architectural clarity for every build</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="nav_projects">Projects</string>
+    <string name="nav_tools">Tools</string>
+    <string name="new_build">New Build</string>
+    <string name="edit_project">Edit Project</string>
+    <string name="delete_project">Delete Project</string>
+    <string name="load_sample_project">Load Sample Cedar Bench</string>
+    <string name="tab_steps">Steps</string>
+    <string name="tab_materials">Materials</string>
+    <string name="tab_measurements">Measure</string>
+</resources>

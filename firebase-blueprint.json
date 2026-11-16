@@ -1,0 +1,197 @@
+{
+  "entities": {
+    "BuildProject": {
+      "title": "BuildProject",
+      "description": "A user-owned construction, renovation, or DIY build project.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Project title (1-100 chars)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["renovation", "furniture", "outdoor", "systems", "custom"],
+          "description": "Project category."
+        },
+        "location": {
+          "type": "string",
+          "description": "Room or build site location."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planning", "in_progress", "finishing", "completed"],
+          "description": "Current project phase status."
+        },
+        "budgetCents": {
+          "type": "integer",
+          "description": "Planned project budget in cents."
+        },
+        "notes": {
+          "type": "string",
+          "description": "General project notes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "title", "category", "location", "status", "budgetCents", "notes", "createdAt", "updatedAt"]
+    },
+    "BuildStep": {
+      "title": "BuildStep",
+      "description": "An actionable step or milestone within a build project.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Parent BuildProject ID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Step description (1-120 chars)."
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["prep", "materials", "build", "finish"],
+          "description": "Build execution phase."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the step is completed."
+        },
+        "sortOrder": {
+          "type": "integer",
+          "description": "Sort index for display."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "projectId", "title", "phase", "completed", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "BuildMaterial": {
+      "title": "BuildMaterial",
+      "description": "A material, lumber, hardware, or supply item with quantity and unit cost.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Parent BuildProject ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Material name (1-100 chars)."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity needed (> 0)."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measure (e.g. pcs, ft, gal, bags)."
+        },
+        "unitCostCents": {
+          "type": "integer",
+          "description": "Cost per unit in cents."
+        },
+        "purchased": {
+          "type": "boolean",
+          "description": "Whether the material has been acquired."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "projectId", "name", "quantity", "unit", "unitCostCents", "purchased", "createdAt", "updatedAt"]
+    },
+    "SiteMeasurement": {
+      "title": "SiteMeasurement",
+      "description": "A field dimension or site measurement recorded for a build project.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Parent BuildProject ID."
+        },
+        "label": {
+          "type": "string",
+          "description": "Measurement label (1-80 chars)."
+        },
+        "dimensionValue": {
+          "type": "string",
+          "description": "Measured value and unit (1-40 chars)."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional context note."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "projectId", "label", "dimensionValue", "note", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/BuildProject" },
+      "description": "User-owned build projects."
+    },
+    "/users/{userId}/projects/{projectId}/steps/{stepId}": {
+      "schema": { "$ref": "#/entities/BuildStep" },
+      "description": "Build steps belonging to a project."
+    },
+    "/users/{userId}/projects/{projectId}/materials/{materialId}": {
+      "schema": { "$ref": "#/entities/BuildMaterial" },
+      "description": "Bill of materials and cost items belonging to a project."
+    },
+    "/users/{userId}/projects/{projectId}/measurements/{measurementId}": {
+      "schema": { "$ref": "#/entities/SiteMeasurement" },
+      "description": "Site dimensions and field measurements belonging to a project."
+    }
+  }
+}
